@@ -1,18 +1,20 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import type { ZodType } from "zod";
 import { findUseCaseFile, readConfig, relativePath } from "./files.js";
 import { parseUseCaseMarkdown } from "./format/parse.js";
 import { serializeUseCase } from "./format/serialize.js";
+import { formatSchema, levelSchema, prioritySchema, statusSchema } from "./format/frontmatter.js";
 import { slugify } from "./slug.js";
 import { VspecError } from "./errors.js";
 import type { ExtensionOutcome, ParsedUseCase } from "./domain/types.js";
 
 const EXTENSION_POINT = /^(\d+[a-z]|\*[a-z])$/i;
+const SETTABLE_FIELDS = ["title", "scope", "frequency", "level", "format", "status", "priority"] as const;
 
 export function setUseCaseField(args: { key: string; field: string; value: string; cwd?: string }) {
   return updateUseCase(args.cwd, args.key, (useCase) => {
-    const field = args.field as keyof ParsedUseCase["frontmatter"];
-    if (!(field in useCase.frontmatter)) throw new Error("INVALID_ARGUMENT");
-    (useCase.frontmatter as Record<string, unknown>)[field] = normalizeFrontmatterValue(args.field, args.value);
+    const value = validatedFieldValue(args.field, args.value);
+    (useCase.frontmatter as Record<string, unknown>)[args.field] = value;
     if (args.field === "title") useCase.title = args.value;
   });
 }
@@ -102,10 +104,34 @@ function updateUseCase(cwd: string | undefined, key: string, mutate: (useCase: P
   return { key, path: relativePath(path, config.root) };
 }
 
-function normalizeFrontmatterValue(field: string, value: string) {
-  if (["level", "format", "status", "priority"].includes(field)) return value.toUpperCase().replace(/-/g, "_");
-  if (field === "primary_actor") return slugify(value);
-  return value;
+function validatedFieldValue(field: string, raw: string): string {
+  switch (field) {
+    case "title":
+    case "scope":
+    case "frequency":
+      return raw;
+    case "level":
+      return validatedEnum(levelSchema, "level", raw, "summary, user-goal, subfunction");
+    case "format":
+      return validatedEnum(formatSchema, "format", raw, "brief, casual, fully-dressed");
+    case "status":
+      return validatedEnum(statusSchema, "status", raw, "draft, in-review, approved, deprecated");
+    case "priority":
+      return validatedEnum(prioritySchema, "priority", raw, "p0, p1, p2, p3");
+    default:
+      throw new VspecError(
+        "INVALID_ARGUMENT",
+        `Cannot set field "${field}". Settable fields: ${SETTABLE_FIELDS.join(", ")}. To edit anything else, edit the markdown file directly and run vspec doctor.`,
+      );
+  }
+}
+
+function validatedEnum(schema: ZodType, field: string, raw: string, hint: string): string {
+  const normalized = raw.toUpperCase().replace(/-/g, "_");
+  if (!schema.safeParse(normalized).success) {
+    throw new VspecError("INVALID_ARGUMENT", `Invalid ${field} "${raw}". Use one of: ${hint}.`);
+  }
+  return normalized;
 }
 
 function parseOutcome(value: string): ExtensionOutcome {
