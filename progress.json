@@ -68,12 +68,12 @@
     {
       "id": "P5",
       "title": "Agent envelope across commands + ai-guide",
-      "status": "todo",
+      "status": "done",
       "gate": "each command's --format=agent emits a valid envelope with non-empty suggested_next_actions; KEY_NOT_FOUND path returns right code + recovery",
       "tasks": [
-        { "id": "P5-T1", "title": "Thread --format through every command; map errors to stable codes", "status": "todo" },
-        { "id": "P5-T2", "title": "Populate suggested_next_actions (success + error) per cli-spec examples", "status": "todo" },
-        { "id": "P5-T3", "title": "vspec ai-guide: end-to-end authoring walkthrough", "status": "todo" }
+        { "id": "P5-T1", "title": "Thread --format through every command; map errors to stable codes", "status": "done" },
+        { "id": "P5-T2", "title": "Populate suggested_next_actions (success + error) per cli-spec examples", "status": "done" },
+        { "id": "P5-T3", "title": "vspec ai-guide: end-to-end authoring walkthrough", "status": "done" }
       ]
     },
     {
