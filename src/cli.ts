@@ -5,6 +5,20 @@ import { buildErrorEnvelope, buildOkEnvelope } from "./envelope.js";
 import { projectKey } from "./files.js";
 import { initProject } from "./project.js";
 import { createUseCase, listUseCases, showUseCase } from "./usecase-commands.js";
+import {
+  createActor,
+  createGoal,
+  createStakeholder,
+  listActors,
+  listGoals,
+  listStakeholders,
+  promoteGoal,
+  rejectGoal,
+  showActor,
+  showGoal,
+  showStakeholder,
+} from "./entity-commands.js";
+import { addScenario, addStakeholderInterest, addStep, editStep, setUseCaseField } from "./mutators.js";
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -124,6 +138,90 @@ export function buildProgram(): Command {
         handleCliError(error);
       }
     });
+  usecase
+    .command("set")
+    .argument("<key>")
+    .requiredOption("--field <name>")
+    .requiredOption("--value <value>")
+    .action((key: string, options: { field: string; value: string }) => runCommand(() => setUseCaseField({ key, ...options })));
+  usecase
+    .command("add-stakeholder")
+    .argument("<key>")
+    .requiredOption("--stakeholder <name>")
+    .requiredOption("--interest <text>")
+    .option("--protected-by <ref>")
+    .action((key: string, options: { stakeholder: string; interest: string; protectedBy?: string }) =>
+      runCommand(() => addStakeholderInterest({ key, ...options })),
+    );
+
+  const actor = program.command("actor").description("Create, list, and show actors");
+  actor
+    .command("create")
+    .requiredOption("--name <name>")
+    .option("--display-name <displayName>")
+    .option("--type <type>", "primary|supporting|offstage", "primary")
+    .option("--human", "actor is human")
+    .option("--alias <alias...>")
+    .action((options: { name: string; displayName?: string; type?: string; human?: boolean; alias?: string[] }) =>
+      runCommand(() => createActor(options)),
+    );
+  actor.command("list").action(() => runCommand(() => listActors({})));
+  actor.command("show").argument("<name>").action((name: string) => runCommand(() => showActor({ name })));
+
+  const stakeholder = program.command("stakeholder").description("Create, list, and show stakeholders");
+  stakeholder
+    .command("create")
+    .requiredOption("--name <name>")
+    .option("--display-name <displayName>")
+    .option("--type <type>", "internal|external|regulatory", "internal")
+    .action((options: { name: string; displayName?: string; type?: string }) => runCommand(() => createStakeholder(options)));
+  stakeholder.command("list").action(() => runCommand(() => listStakeholders({})));
+  stakeholder.command("show").argument("<name>").action((name: string) => runCommand(() => showStakeholder({ name })));
+
+  const goal = program.command("goal").description("Create, list, show, promote, and reject goals");
+  goal
+    .command("create")
+    .requiredOption("--actor <name>")
+    .requiredOption("--description <text>")
+    .option("--level <level>", "summary|user-goal|subfunction", "user-goal")
+    .option("--priority <priority>", "p0|p1|p2|p3", "p1")
+    .action((options: { actor: string; description: string; level?: string; priority?: string }) => runCommand(() => createGoal(options)));
+  goal
+    .command("list")
+    .option("--actor <actor>")
+    .option("--status <status>")
+    .action((options: { actor?: string; status?: string }) => runCommand(() => listGoals(options)));
+  goal.command("show").argument("<id>").action((id: string) => runCommand(() => showGoal({ id })));
+  goal.command("promote").argument("<id>").action((id: string) => runCommand(() => promoteGoal({ id })));
+  goal.command("reject").argument("<id>").action((id: string) => runCommand(() => rejectGoal({ id })));
+
+  const scenario = program.command("scenario").description("Mutate use-case scenarios");
+  scenario
+    .command("add")
+    .argument("<key>")
+    .requiredOption("--type <type>")
+    .option("--at <point>")
+    .option("--condition <text>")
+    .option("--outcome <outcome>")
+    .action((key: string, options: { type: string; at?: string; condition?: string; outcome?: string }) =>
+      runCommand(() => addScenario({ key, ...options })),
+    );
+
+  const step = program.command("step").description("Mutate use-case steps");
+  step
+    .command("add")
+    .argument("<key>")
+    .option("--scenario <scenario>", "main|<point>", "main")
+    .requiredOption("--actor <name>")
+    .requiredOption("--action <text>")
+    .action((key: string, options: { scenario?: string; actor: string; action: string }) => runCommand(() => addStep({ key, ...options })));
+  step
+    .command("edit")
+    .argument("<key>")
+    .requiredOption("--step <step>")
+    .option("--actor <name>")
+    .option("--action <text>")
+    .action((key: string, options: { step: string; actor?: string; action?: string }) => runCommand(() => editStep({ key, ...options })));
 
   return program;
 }
@@ -151,6 +249,16 @@ function handleCliError(error: unknown) {
   else if (code === "GOAL_NOT_FOUND") console.error("No goal found for that id.");
   else console.error(code);
   process.exitCode = 1;
+}
+
+function runCommand<T>(fn: () => T) {
+  try {
+    const result = fn();
+    if (typeof result === "object") console.log(JSON.stringify(result, null, 2));
+    else console.log(String(result));
+  } catch (error) {
+    handleCliError(error);
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
