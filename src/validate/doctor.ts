@@ -23,12 +23,16 @@ export type Finding = {
 export type DoctorResult = {
   findings: Finding[];
   files: string[];
+  // Keys that have every FULLY_DRESSED-required section but are still BRIEF/CASUAL
+  // — eligible for a `set --field format --value FULLY_DRESSED` promotion.
+  promotable: string[];
 };
 
 export function runDoctor(args: { root?: string; target?: string }): DoctorResult {
   const root = resolve(args.root ?? process.cwd());
   const files = resolveTargets(root, args.target);
   const findings: Finding[] = [];
+  const promotable: string[] = [];
   const actors = readEntityIndex(root, "specs/actors");
   const stakeholders = readEntityIndex(root, "specs/stakeholders");
   const glossary = readGlossary(root);
@@ -36,6 +40,7 @@ export function runDoctor(args: { root?: string; target?: string }): DoctorResul
   if (args.target && files.length === 0) {
     return {
       files: [],
+      promotable: [],
       findings: [
         {
           rule: "key-found",
@@ -62,9 +67,24 @@ export function runDoctor(args: { root?: string; target?: string }): DoctorResul
       continue;
     }
     findings.push(...validateUseCase({ root, file, useCase: parsed, actors, stakeholders, glossary }));
+    if (isPromotable(parsed)) promotable.push(parsed.frontmatter.key);
   }
 
-  return { findings, files: files.map((file) => relativePath(file, root)) };
+  return { findings, files: files.map((file) => relativePath(file, root)), promotable };
+}
+
+// A use case is promotable when it carries every FULLY_DRESSED-required section
+// yet is still authored as BRIEF/CASUAL — we suggest the bump rather than apply it,
+// since format also drives doctor strictness and may be intentionally lower.
+function isPromotable(useCase: ParsedUseCase): boolean {
+  if (useCase.frontmatter.format === "FULLY_DRESSED") return false;
+  return (
+    useCase.stakeholderInterests.length > 0 &&
+    Boolean(useCase.trigger) &&
+    useCase.mainSuccess.length > 0 &&
+    Boolean(useCase.successGuarantee) &&
+    Boolean(useCase.minimalGuarantee)
+  );
 }
 
 function resolveTargets(root: string, target?: string): string[] {

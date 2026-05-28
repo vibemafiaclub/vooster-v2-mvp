@@ -76,7 +76,13 @@ export function buildProgram(): Command {
       }
       outputSuccess({
         data,
-        suggestedNextActions: [{ command: "vspec export gherkin <KEY>", reason: "Export validated use cases." }],
+        suggestedNextActions: [
+          ...result.promotable.map((key) => ({
+            command: `vspec usecase set ${key} --field format --value FULLY_DRESSED`,
+            reason: "All required sections are present — promote from BRIEF/CASUAL to FULLY_DRESSED.",
+          })),
+          { command: "vspec export gherkin <KEY>", reason: "Export validated use cases." },
+        ],
         warnings: warnings.map((finding) => ({ message: finding.message })),
       });
     });
@@ -351,18 +357,25 @@ function readStdin(): string {
 // apply is the authoring boundary: after writing, validate inline so the agent
 // sees findings without a separate doctor call.
 function applyPayload<T extends { path: string }>(data: T, key: string) {
-  const { findings } = runDoctor({ target: key });
+  const { findings, promotable } = runDoctor({ target: key });
   const errors = findings.filter((finding) => finding.level === "error");
+  const actions = [
+    {
+      command: `vspec doctor ${key}`,
+      reason: errors.length > 0 ? `${errors.length} validation error(s) to fix.` : "Validate after the edit.",
+    },
+  ];
+  if (promotable.length > 0) {
+    actions.push({
+      command: `vspec usecase set ${key} --field format --value FULLY_DRESSED`,
+      reason: "All required sections are present — promote from BRIEF/CASUAL to FULLY_DRESSED.",
+    });
+  }
   return {
     data,
     affectedFiles: [{ path: data.path }],
     warnings: findings.map((finding) => ({ message: `${finding.level}: ${finding.message}` })),
-    suggestedNextActions: [
-      {
-        command: `vspec doctor ${key}`,
-        reason: errors.length > 0 ? `${errors.length} validation error(s) to fix.` : "Validate after the edit.",
-      },
-    ],
+    suggestedNextActions: actions,
   };
 }
 
