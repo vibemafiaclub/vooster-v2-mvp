@@ -50,6 +50,43 @@ describe("doctor validation", () => {
     rmSync(root, { recursive: true, force: true });
   });
 
+  it("makes stakeholder reference errors self-teaching with the available slugs", () => {
+    const root = makeFixtureRoot(
+      readFileSync(join(cleanRoot, "specs/usecases/VSPEC-001-validate-a-use-case.md"), "utf8").replace("**Vooster**", "**부스터**"),
+    );
+    const finding = runDoctor({ root }).findings.find((f) => f.rule === "stakeholder-reference-exists");
+    expect(finding?.message).toContain("Available stakeholder slugs: vooster");
+    expect(finding?.message).toContain("Reference the slug, not the display name");
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("makes actor reference errors self-teaching with the available slugs", () => {
+    const root = makeFixtureRoot(
+      readFileSync(join(cleanRoot, "specs/usecases/VSPEC-001-validate-a-use-case.md"), "utf8").replace("**developer** requests", "**개발자** requests"),
+    );
+    const finding = runDoctor({ root }).findings.find((f) => f.rule === "step-actor-exists");
+    expect(finding?.message).toContain("Available actor slugs: developer, system");
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("suggests listing existing slugs, never a broken --name create from a display name", () => {
+    const root = makeFixtureRoot(
+      readFileSync(join(cleanRoot, "specs/usecases/VSPEC-001-validate-a-use-case.md"), "utf8").replace("**Vooster**", "**부스터**"),
+    );
+    const tsx = join(import.meta.dirname, "../node_modules/.bin/tsx");
+    const cli = join(import.meta.dirname, "../src/cli.ts");
+    let stdout = "";
+    try {
+      stdout = execFileSync(tsx, [cli, "doctor", "--format", "agent"], { cwd: root, encoding: "utf8" });
+    } catch (error) {
+      stdout = (error as { stdout: string }).stdout;
+    }
+    const commands = (JSON.parse(stdout).suggested_next_actions as { command: string }[]).map((action) => action.command);
+    expect(commands).toContain("vspec stakeholder list");
+    expect(commands.some((command) => /--name\s*-/.test(command) || /--name\s*$/.test(command))).toBe(false);
+    rmSync(root, { recursive: true, force: true });
+  }, 15_000);
+
   it("warns for lower maturity required fields without failing", () => {
     const text = readFileSync(join(cleanRoot, "specs/usecases/VSPEC-001-validate-a-use-case.md"), "utf8")
       .replace("format: FULLY_DRESSED", "format: BRIEF")

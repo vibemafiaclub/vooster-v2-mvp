@@ -96,22 +96,22 @@ function validateUseCase(args: {
     findings.push(error("main-success-has-step", "Main success scenario must have at least one step.", location));
   }
   for (const step of useCase.mainSuccess) {
-    validateStep(findings, actorExists, "step-bold-actor-action", location, String(step.number), step.actor, step.action);
+    validateStep(findings, actorRefs, "step-bold-actor-action", location, String(step.number), step.actor, step.action);
     validateQualityStep(findings, glossary, location, String(step.number), step.action);
   }
   for (const extension of useCase.extensions) {
     for (const step of extension.steps) {
-      validateStep(findings, actorExists, "step-bold-actor-action", location, step.id, step.actor, step.action);
+      validateStep(findings, actorRefs, "step-bold-actor-action", location, step.id, step.actor, step.action);
       validateQualityStep(findings, glossary, location, step.id, step.action);
     }
   }
   for (const item of useCase.stakeholderInterests) {
     if (!stakeholderRefs.has(displayToSlug(item.stakeholder))) {
-      findings.push(error("stakeholder-reference-exists", `Stakeholder ${item.stakeholder} does not exist.`, location));
+      findings.push(error("stakeholder-reference-exists", `Stakeholder ${item.stakeholder} does not exist.${refHint("stakeholder", stakeholderRefs)}`, location));
     }
   }
   if (!actorExists(useCase.frontmatter.primary_actor)) {
-    findings.push(error("primary-actor-exists", `Primary actor ${useCase.frontmatter.primary_actor} does not exist.`, location));
+    findings.push(error("primary-actor-exists", `Primary actor ${useCase.frontmatter.primary_actor} does not exist.${refHint("actor", actorRefs)}`, location));
   }
   const mainStepNumbers = new Set(useCase.mainSuccess.map((step, index) => step.number || index + 1));
   for (const extension of useCase.extensions) {
@@ -163,7 +163,7 @@ type Glossary = {
 
 function validateStep(
   findings: Finding[],
-  actorExists: (name: string) => boolean,
+  actorRefs: Set<string>,
   rule: string,
   location: string,
   ref: string,
@@ -174,9 +174,18 @@ function validateStep(
     findings.push(error(rule, `Step ${ref} must start with a bold actor and include an action.`, location));
     return;
   }
-  if (!actorExists(actor)) {
-    findings.push(error("step-actor-exists", `Actor ${actor} in step ${ref} does not exist.`, location));
+  if (!actorRefs.has(displayToSlug(actor))) {
+    findings.push(error("step-actor-exists", `Actor ${actor} in step ${ref} does not exist.${refHint("actor", actorRefs)}`, location));
   }
+}
+
+// Reference errors must be self-teaching: name the valid slugs (ko-default specs
+// are referenced by their English slug, not their display name).
+function refHint(kind: "actor" | "stakeholder", refs: Set<string>): string {
+  if (refs.size === 0) {
+    return ` No ${kind}s exist yet — create one with \`vspec ${kind} create --name <slug>\`.`;
+  }
+  return ` Available ${kind} slugs: ${[...refs].sort().join(", ")}. Reference the slug, not the display name.`;
 }
 
 function validateQualityStep(findings: Finding[], glossary: Glossary, location: string, ref: string, action: string) {

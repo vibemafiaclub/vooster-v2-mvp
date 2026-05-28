@@ -256,18 +256,26 @@ export function buildProgram(): Command {
 }
 
 function suggestDoctorActions(findings: { rule: string; message: string }[]) {
-  const actions = [{ command: "vspec doctor", reason: "Re-run validation after fixes." }];
+  const actions: { command: string; reason?: string }[] = [];
+  const seen = new Set<string>();
+  // Point at the list command (which prints real slugs) rather than synthesizing
+  // a `--name <slug>` from a display name — that produced broken commands like
+  // `--name -` for Korean names and pushed agents to create junk entities when
+  // the actual fix was to reference an existing slug.
+  const add = (command: string, reason: string) => {
+    if (seen.has(command)) return;
+    seen.add(command);
+    actions.push({ command, reason });
+  };
   for (const finding of findings) {
-    const actor = finding.message.match(/Actor (.+?) (?:in step|does not exist)/)?.[1];
-    if (actor) actions.unshift({ command: `vspec actor create --name ${actor}`, reason: "Create the missing actor." });
-    const stakeholder = finding.message.match(/Stakeholder (.+?) does not exist/)?.[1];
-    if (stakeholder) {
-      actions.unshift({
-        command: `vspec stakeholder create --name ${stakeholder.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-        reason: "Create the missing stakeholder.",
-      });
+    if (/actor .+? does not exist/i.test(finding.message)) {
+      add("vspec actor list", "Reference an existing actor by its slug (not its display name), or create it.");
+    }
+    if (/stakeholder .+? does not exist/i.test(finding.message)) {
+      add("vspec stakeholder list", "Reference an existing stakeholder by its slug (not its display name), or create it.");
     }
   }
+  add("vspec doctor", "Re-run validation after fixes.");
   return actions;
 }
 
