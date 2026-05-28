@@ -197,7 +197,7 @@ export function showGoal(args: { id: string; cwd?: string }) {
 
 export function promoteGoal(args: { id: string; cwd?: string }) {
   const goal = showGoal(args);
-  return createUseCase({
+  const created = createUseCase({
     cwd: args.cwd,
     title: readFileSync(join(mustConfig(args.cwd).root, goal.path), "utf8").split("---").pop()?.trim() || goal.frontmatter.id,
     primaryActor: goal.frontmatter.actor,
@@ -205,6 +205,10 @@ export function promoteGoal(args: { id: string; cwd?: string }) {
     priority: goal.frontmatter.priority,
     from: args.id,
   });
+  // Echo both the source goal id and the new use-case key — promote produces a use
+  // case (key), which differs from goal create's payload (id); name both so the
+  // caller never has to guess the shape.
+  return { ...created, from: args.id };
 }
 
 export function rejectGoal(args: { id: string; cwd?: string }) {

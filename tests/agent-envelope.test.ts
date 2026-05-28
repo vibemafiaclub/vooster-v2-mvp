@@ -56,7 +56,9 @@ describe("agent format across commands", () => {
     run("goal", "show", goal.id);
     run("goal", "reject", goal.id);
     const goalToPromote = run("goal", "create", "--actor", "developer", "--description", "Validate specs").data as { id: string };
-    run("goal", "promote", goalToPromote.id);
+    const promoted = run("goal", "promote", goalToPromote.id).data as { key: string; from: string };
+    expect(promoted.key).toMatch(/^VSPEC-/);
+    expect(promoted.from).toBe(goalToPromote.id);
     const created = run("usecase", "create", "--title", "Export a use case", "--primary-actor", "developer").data as { key: string };
     run("usecase", "list");
     run("usecase", "show", created.key);
