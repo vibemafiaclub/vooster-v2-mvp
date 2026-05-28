@@ -12,6 +12,7 @@ import { serializeUseCase } from "./format/serialize.js";
 import { findUseCaseFile, readConfig, relativePath, walkFiles } from "./files.js";
 import { nextUseCaseKey } from "./keys.js";
 import { slugify } from "./slug.js";
+import { VspecError } from "./errors.js";
 import type { GoalFrontmatter, ParsedUseCase, Priority, UseCaseLevel } from "./domain/types.js";
 
 export function createUseCase(args: {
@@ -129,13 +130,13 @@ function promoteGoal(path: string, key: string) {
 function parseLevel(value: string): UseCaseLevel {
   const normalized = value.toUpperCase().replace(/-/g, "_");
   if (normalized === "SUMMARY" || normalized === "USER_GOAL" || normalized === "SUBFUNCTION") return normalized;
-  throw new Error("INVALID_ARGUMENT");
+  throw new VspecError("INVALID_ARGUMENT", `Invalid level "${value}". Use one of: summary, user-goal, subfunction.`);
 }
 
 function parsePriority(value: string): Priority {
   const normalized = value.toUpperCase();
   if (normalized === "P0" || normalized === "P1" || normalized === "P2" || normalized === "P3") return normalized;
-  throw new Error("INVALID_ARGUMENT");
+  throw new VspecError("INVALID_ARGUMENT", `Invalid priority "${value}". Use one of: p0, p1, p2, p3.`);
 }
 
 function displayName(slug: string): string {

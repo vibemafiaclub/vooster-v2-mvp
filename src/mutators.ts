@@ -3,7 +3,10 @@ import { findUseCaseFile, readConfig, relativePath } from "./files.js";
 import { parseUseCaseMarkdown } from "./format/parse.js";
 import { serializeUseCase } from "./format/serialize.js";
 import { slugify } from "./slug.js";
+import { VspecError } from "./errors.js";
 import type { ExtensionOutcome, ParsedUseCase } from "./domain/types.js";
+
+const EXTENSION_POINT = /^(\d+[a-z]|\*[a-z])$/i;
 
 export function setUseCaseField(args: { key: string; field: string; value: string; cwd?: string }) {
   return updateUseCase(args.cwd, args.key, (useCase) => {
@@ -27,7 +30,15 @@ export function addStakeholderInterest(args: { key: string; stakeholder: string;
 export function addScenario(args: { key: string; type: string; at?: string; condition?: string; outcome?: string; cwd?: string }) {
   return updateUseCase(args.cwd, args.key, (useCase) => {
     if (args.type === "main-success") return;
-    if (args.type !== "extension") throw new Error("INVALID_ARGUMENT");
+    if (args.type !== "extension") {
+      throw new VspecError("INVALID_ARGUMENT", `Unknown --type "${args.type}". Use one of: main-success, extension.`);
+    }
+    if (args.at !== undefined && !EXTENSION_POINT.test(args.at)) {
+      throw new VspecError(
+        "INVALID_ARGUMENT",
+        `Invalid --at "${args.at}". Use an extension point id like 3a or *a (the leading digit is the main step it branches from, * means any step).`,
+      );
+    }
     const point = args.at ?? `${Math.max(1, useCase.mainSuccess.length)}a`;
     useCase.extensions.push({
       point,
@@ -47,7 +58,13 @@ export function addStep(args: { key: string; scenario?: string; actor: string; a
       return;
     }
     const extension = useCase.extensions.find((item) => item.point === scenario);
-    if (!extension) throw new Error("KEY_NOT_FOUND");
+    if (!extension) {
+      const points = useCase.extensions.map((item) => item.point).join(", ") || "none yet";
+      throw new VspecError(
+        "INVALID_ARGUMENT",
+        `Unknown --scenario "${scenario}". Use "main" or an existing extension point (have: ${points}). Create the extension first with: vspec scenario add ${args.key} --type extension --at ${scenario}.`,
+      );
+    }
     extension.steps.push({ id: `${extension.point}${extension.steps.length + 1}`, actor: slugify(args.actor), action: ensurePeriod(args.action) });
   });
 }
@@ -94,7 +111,10 @@ function normalizeFrontmatterValue(field: string, value: string) {
 function parseOutcome(value: string): ExtensionOutcome {
   const normalized = value.toUpperCase();
   if (normalized === "SUCCESS" || normalized === "FAILURE" || normalized === "PARTIAL") return normalized;
-  throw new Error("INVALID_ARGUMENT");
+  throw new VspecError(
+    "INVALID_ARGUMENT",
+    `Invalid --outcome "${value}". Use one of: success, failure, partial (not free text). Put any explanation in the Extensions "(Outcome: ... — <text>)" line instead.`,
+  );
 }
 
 function ensurePeriod(value: string): string {
