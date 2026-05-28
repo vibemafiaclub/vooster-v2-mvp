@@ -6,6 +6,8 @@ import { VspecError } from "./errors.js";
 import { initProject } from "./project.js";
 import { createUseCase, listUseCases, showUseCase } from "./usecase-commands.js";
 import {
+  applyActorBody,
+  applyStakeholderBody,
   createActor,
   createGoal,
   createStakeholder,
@@ -14,6 +16,8 @@ import {
   listStakeholders,
   promoteGoal,
   rejectGoal,
+  setActorField,
+  setStakeholderField,
   showActor,
   showGoal,
   showStakeholder,
@@ -167,6 +171,21 @@ export function buildProgram(): Command {
     .action((name: string) =>
       runCommand(() => showActor({ name }), (data) => ({ data, suggestedNextActions: [{ command: "vspec usecase create --title \"...\" --primary-actor " + name }] })),
     );
+  actor
+    .command("set")
+    .argument("<name>")
+    .requiredOption("--field <name>", "display_name|type|is_human")
+    .requiredOption("--value <value>", "new value (validated against the field)")
+    .action((name: string, options: { field: string; value: string }) =>
+      runCommand(() => setActorField({ name, ...options }), (result) => entityMutationPayload(result)),
+    );
+  actor
+    .command("apply")
+    .description("Replace the actor description body from content piped via stdin")
+    .argument("<name>")
+    .action((name: string) =>
+      runCommand(() => applyActorBody({ name, body: readStdin() }), (result) => entityMutationPayload(result)),
+    );
 
   const stakeholder = program.command("stakeholder").description("Create, list, and show stakeholders");
   stakeholder
@@ -185,6 +204,21 @@ export function buildProgram(): Command {
     .argument("<name>")
     .action((name: string) =>
       runCommand(() => showStakeholder({ name }), (data) => ({ data, suggestedNextActions: [{ command: "vspec usecase apply <KEY> --section stakeholders" }] })),
+    );
+  stakeholder
+    .command("set")
+    .argument("<name>")
+    .requiredOption("--field <name>", "display_name|type")
+    .requiredOption("--value <value>", "new value (validated against the field)")
+    .action((name: string, options: { field: string; value: string }) =>
+      runCommand(() => setStakeholderField({ name, ...options }), (result) => entityMutationPayload(result)),
+    );
+  stakeholder
+    .command("apply")
+    .description("Replace the stakeholder description body from content piped via stdin")
+    .argument("<name>")
+    .action((name: string) =>
+      runCommand(() => applyStakeholderBody({ name, body: readStdin() }), (result) => entityMutationPayload(result)),
     );
 
   const goal = program.command("goal").description("Create, list, show, promote, and reject goals");
@@ -293,6 +327,14 @@ function mutationPayload<T extends { path: string }>(data: T, key: string) {
     data,
     affectedFiles: [{ path: data.path }],
     suggestedNextActions: [{ command: `vspec doctor ${key}`, reason: "Validate after the edit." }],
+  };
+}
+
+function entityMutationPayload<T extends { path: string }>(data: T) {
+  return {
+    data,
+    affectedFiles: [{ path: data.path }],
+    suggestedNextActions: [{ command: "vspec doctor", reason: "Re-validate specs after the edit." }],
   };
 }
 

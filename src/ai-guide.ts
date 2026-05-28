@@ -10,6 +10,8 @@ export function aiGuideText(): string {
     "  그때 직접 파일 편집은 **불가능**해진다. 지금부터 CLI만으로 작업하면 그 전환이 매끄럽다.",
     "- 본문 작성은 `vspec usecase apply`가 1급 경로다. 내용은 네가 작성하되, 파일에 직접 쓰지 말고",
     "  stdin으로 CLI에 제출한다. CLI가 파싱·검증·정규화해서 저장한다 (원격 DB의 PUT/PATCH와 동일).",
+    "- actor/stakeholder도 마찬가지다: 필드는 `vspec actor set <name> --field display_name|type --value ...`",
+    "  (`vspec stakeholder set`도 동일), 설명 본문은 `vspec actor apply <name>`(stdin)으로 바꾼다. 파일을 직접 편집할 이유가 없다.",
     "",
     "## 출력 읽기: 항상 JSON 엔벨로프",
     "",
