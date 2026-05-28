@@ -12,13 +12,14 @@ import {
 } from "./format/frontmatter.js";
 import { readConfig, relativePath, walkFiles } from "./files.js";
 import { nextGoalId } from "./keys.js";
-import { slugify } from "./slug.js";
+import { fileSlug, slugify } from "./slug.js";
+import { VspecError } from "./errors.js";
 import { createUseCase } from "./usecase-commands.js";
 import type { ActorFrontmatter, GoalFrontmatter, Priority, StakeholderFrontmatter, UseCaseLevel } from "./domain/types.js";
 
 export function createActor(args: { name: string; displayName?: string; type?: string; human?: boolean; alias?: string[]; cwd?: string }) {
   const { root } = mustConfig(args.cwd);
-  const name = slugify(args.name);
+  const name = requireSlug(args.name, "actor name");
   const path = join(root, "specs/actors", `${name}.md`);
   if (existsSync(path)) throw new Error("ALREADY_EXISTS");
   const fm: ActorFrontmatter = {
@@ -51,7 +52,7 @@ export function showActor(args: { name: string; cwd?: string }) {
 
 export function createStakeholder(args: { name: string; displayName?: string; type?: string; cwd?: string }) {
   const { root } = mustConfig(args.cwd);
-  const name = slugify(args.name);
+  const name = requireSlug(args.name, "stakeholder name");
   const path = join(root, "specs/stakeholders", `${name}.md`);
   if (existsSync(path)) throw new Error("ALREADY_EXISTS");
   const fm: StakeholderFrontmatter = {
@@ -83,12 +84,20 @@ export function showStakeholder(args: { name: string; cwd?: string }) {
 export function createGoal(args: { actor: string; description: string; level?: string; priority?: string; cwd?: string }) {
   const { root } = mustConfig(args.cwd);
   const id = nextGoalId(join(root, "specs/goals"));
-  const path = join(root, "specs/goals", `${id}-${slugify(args.description)}.md`);
+  const slug = fileSlug(args.description);
+  if (!slug) {
+    throw new VspecError(
+      "INVALID_ARGUMENT",
+      `description "${args.description}" has no letters or numbers to build a file name from. Describe the goal in words.`,
+    );
+  }
+  const actor = requireSlug(args.actor, "actor");
+  const path = join(root, "specs/goals", `${id}-${slug}.md`);
   const fm: GoalFrontmatter = {
     vspec_format: 1,
     type: "goal",
     id,
-    actor: slugify(args.actor),
+    actor,
     level: parseLevel(args.level ?? "user-goal"),
     status: "IDENTIFIED",
     priority: parsePriority(args.priority ?? "p1"),
@@ -133,6 +142,17 @@ export function rejectGoal(args: { id: string; cwd?: string }) {
   const fm: GoalFrontmatter = { ...parseGoalFrontmatter(parsed.data), status: "REJECTED" };
   writeFileSync(path, stringifyFrontmatter(orderGoalFrontmatter(fm), parsed.content));
   return { id: args.id, path: relativePath(path, root), status: "REJECTED" as const };
+}
+
+function requireSlug(value: string, label: string): string {
+  const slug = slugify(value);
+  if (!slug) {
+    throw new VspecError(
+      "INVALID_ARGUMENT",
+      `${label} "${value}" must be an ASCII slug like "user" — identifiers stay English even when the spec is Korean.`,
+    );
+  }
+  return slug;
 }
 
 function mustConfig(cwd?: string) {

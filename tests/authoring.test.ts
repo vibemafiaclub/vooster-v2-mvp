@@ -54,4 +54,29 @@ describe("use-case authoring loop", () => {
     expect(file).toContain("리뷰 요청을 승인한다 요청을 제출한다.");
     rmSync(root, { recursive: true, force: true });
   });
+
+  it("derives a meaningful Korean filename instead of an empty slug", () => {
+    const root = join(tmpdir(), `vspec-korean-slug-${crypto.randomUUID()}`);
+    mkdirSync(root, { recursive: true });
+    initProject({ root, key: "VSPEC" });
+    const created = createUseCase({ cwd: root, title: "리뷰 완료 후 학습 루프 실행", primaryActor: "developer" });
+    expect(created.path).toBe("specs/usecases/VSPEC-001-리뷰-완료-후-학습-루프-실행.md");
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("rejects a title that produces an empty slug instead of writing VSPEC-001-.md", () => {
+    const root = join(tmpdir(), `vspec-empty-slug-${crypto.randomUUID()}`);
+    mkdirSync(root, { recursive: true });
+    initProject({ root, key: "VSPEC" });
+    expect(() => createUseCase({ cwd: root, title: "!!! ??? ...", primaryActor: "developer" })).toThrow(/no letters or numbers/);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("rejects a non-slug primary actor instead of creating specs/actors/.md", () => {
+    const root = join(tmpdir(), `vspec-bad-actor-${crypto.randomUUID()}`);
+    mkdirSync(root, { recursive: true });
+    initProject({ root, key: "VSPEC" });
+    expect(() => createUseCase({ cwd: root, title: "Author a use case", primaryActor: "사용자" })).toThrow(/not a valid actor name/);
+    rmSync(root, { recursive: true, force: true });
+  });
 });

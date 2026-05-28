@@ -11,7 +11,7 @@ import { parseUseCaseMarkdown } from "./format/parse.js";
 import { serializeUseCase } from "./format/serialize.js";
 import { findUseCaseFile, readConfig, relativePath, walkFiles } from "./files.js";
 import { nextUseCaseKey } from "./keys.js";
-import { slugify } from "./slug.js";
+import { fileSlug, slugify } from "./slug.js";
 import { VspecError } from "./errors.js";
 import type { GoalFrontmatter, ParsedUseCase, Priority, UseCaseLevel } from "./domain/types.js";
 
@@ -27,9 +27,21 @@ export function createUseCase(args: {
   if (!config) throw new Error("NOT_INITIALIZED");
   const { root } = config;
   const key = nextUseCaseKey(config.config.key_prefix, join(root, "specs/usecases"));
-  const slug = slugify(args.title);
+  const slug = fileSlug(args.title);
+  if (!slug) {
+    throw new VspecError(
+      "INVALID_ARGUMENT",
+      `Title "${args.title}" has no letters or numbers to build a file name from. Give the use case a descriptive title.`,
+    );
+  }
   const path = join(root, "specs/usecases", `${key}-${slug}.md`);
   const primaryActor = slugify(args.primaryActor);
+  if (!primaryActor) {
+    throw new VspecError(
+      "INVALID_ARGUMENT",
+      `primary-actor "${args.primaryActor}" is not a valid actor name. Use an ASCII slug like "user" — identifiers stay English even when the spec is Korean.`,
+    );
+  }
   ensureActor(root, primaryActor);
   const useCase: ParsedUseCase = {
     frontmatter: {
