@@ -286,9 +286,25 @@ function readGlossary(root: string): Glossary {
   return { avoidTerms: [...new Set(avoidTerms)] };
 }
 
+function matchesAsToken(text: string, term: string): boolean {
+  const lowerText = text.toLowerCase();
+  const lowerTerm = term.toLowerCase();
+  let start = 0;
+  while (true) {
+    const idx = lowerText.indexOf(lowerTerm, start);
+    if (idx === -1) return false;
+    const before = idx > 0 ? lowerText[idx - 1] : null;
+    const after = idx + lowerTerm.length < lowerText.length ? lowerText[idx + lowerTerm.length] : null;
+    const wordChar = /[\p{L}\p{N}]/u;
+    const beforeIsWord = before !== null && wordChar.test(before);
+    const afterIsWord = after !== null && wordChar.test(after);
+    if (!beforeIsWord && !afterIsWord) return true;
+    start = idx + 1;
+  }
+}
+
 function firstVagueTerm(text: string, glossary: Glossary): string | null {
-  const lower = text.toLowerCase();
-  return glossary.avoidTerms.find((term) => lower.includes(term.toLowerCase())) ?? null;
+  return glossary.avoidTerms.find((term) => matchesAsToken(text, term)) ?? null;
 }
 
 function collectContractText(useCase: ParsedUseCase): string {
@@ -313,6 +329,10 @@ function containsHangul(text: string): boolean {
 }
 
 function looksLikeVerbPhrase(title: string): boolean {
+  if (containsHangul(title)) {
+    const stripped = title.trim().replace(/[\s\p{P}\p{Z}「」『』【】〔〕《》〈〉"'()\[\]{}]+$/u, "");
+    return /[다라자]$/.test(stripped);
+  }
   const first = title.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
   const weakNouns = new Set(["the", "a", "an", "spec", "use", "case", "system"]);
   return first.length > 2 && !weakNouns.has(first) && !first.endsWith("tion");
