@@ -36,9 +36,14 @@ yourself a 5-line "principles I will judge against" list:
   2. **The agent is the user** → every output (esp. errors) must be
      *self-teaching*: stable `error.code`, a human message, and
      `suggested_next_actions`. Agent-first means `--format=agent` is the default.
-  3. **CLI scaffolds & validates; the agent authors** → editing markdown directly
-     is a first-class path. A convenience mutator that creates more friction than
-     hand-editing is net-negative.
+  3. **The CLI is the only mutation path** → the agent authors the *content*, but
+     every add/edit/delete goes through a `vspec` command (`usecase apply` /
+     `apply --section` / `set`). Files are today's storage; vspec is moving to a
+     remote DB where direct file writes won't exist. So a direct `Edit`/`Write`
+     under `specs/` is never the desired outcome — it signals a CLI capability gap
+     (a section or operation the agent couldn't express through `apply`). The fix
+     is to close that gap (or document it in `ai-guide`), never to bless
+     hand-editing.
   4. **Boring & small** → prefer fixing the existing surface over adding new
      commands/flags.
 - `docs/01-cockburn.md` + `docs/03-cli-spec.md` — the command surface, the
@@ -87,7 +92,7 @@ Scan the digest for these. Each maps to a likely vspec defect:
 | `"message": "<CODE>"` (message == code) | Error carries no actionable detail → agent must guess. |
 | Raw `[{"code":"invalid_value",...}]` arrays | A zod/parse error leaked instead of the documented envelope. |
 | A `set`/mutator "succeeds" then later commands fail on load | A command wrote an unvalidated value and **corrupted a file** (P0). |
-| High `specs/usecases/` Edit/Write count after many failed mutator calls | Agent abandoned the CLI for hand-editing — mutator is net-negative. |
+| Any direct `Edit`/`Write`/`sed` touching files under `specs/` | A CLI capability gap: the agent fell back to hand-editing because `apply`/`apply --section`/`set` couldn't express that section or operation. Identify *which* section/op was missing and treat closing it as a defect (🔴 if it bypassed validation / could corrupt, 🟡 otherwise). Never resolve by endorsing direct edits. |
 | Enum/format guessing (BOGUS, uppercase/lowercase, free-text where enum expected) | Missing value hints in help + errors. |
 | `--format` usage shows json/human but never `agent`; low `suggested_next_actions` count | The self-teaching envelope isn't reaching the agent (default? guidance?). |
 | `doctor` false positives, esp. on Korean text or short tokens | Lint heuristics assume English; ko is the default language. |
@@ -128,17 +133,22 @@ For every finding produce, tightly:
 - Behavior is correct but the agent couldn't discover it (enums, formats, the
   extension syntax) → **fix `ai-guide` and/or `--help`**, and make errors name the
   valid values. Don't add a flag if a better message suffices (principle 4).
-- A convenience mutator caused more friction than hand-editing → either make it
-  trustworthy (validation + good errors) **or** de-emphasize it in `ai-guide` and
-  steer to "edit the markdown + `doctor`" (principle 3).
+- The agent hand-edited a file under `specs/` → find what `apply`/`apply --section`/
+  `set` couldn't express (a missing section name, an awkward format, a delete/
+  reorder with no command) and **close that gap or document it in `ai-guide`**.
+  Never resolve by steering back to hand-editing — that path disappears with the
+  remote DB (principle 3). Prefer extending the existing `apply` surface (a new
+  `--section` value, a clearer error) over adding new top-level commands
+  (principle 4).
 - Heuristic misfires on Korean / non-English → make it language-aware; `ko` is the
   default, so English-only logic is a bug.
 
 ## 6. Deliver
 
 Lead with a one-paragraph session summary (task, did it ultimately succeed, the
-headline friction with rough counts: e.g. "scenario add 19×, mostly failing;
-0× --format=agent; 33 hand-edits"). Then the findings, severity-ordered, with the
+headline friction with rough counts: e.g. "usecase apply 19×, mostly failing on
+--section extensions; 0× --format=agent; 33 direct Edits under specs/"). Then the
+findings, severity-ordered, with the
 "first 3 to fix" called out. End by offering to implement (each fix = its own
 commit), but don't start coding until asked.
 

@@ -75,7 +75,7 @@ Success — `vspec usecase create --title "Author a use case" --primary-actor de
   "affected_files": [{ "path": "specs/usecases/VSPEC-001-author-a-use-case.md" }],
   "dry_run": false,
   "suggested_next_actions": [
-    { "command": "vspec usecase add-stakeholder VSPEC-001 --stakeholder vooster --interest \"...\"", "reason": "A use case needs at least one stakeholder interest." },
+    { "command": "vspec usecase apply VSPEC-001 --section main-success", "reason": "Author the main success steps (pipe the numbered list via stdin)." },
     { "command": "vspec doctor VSPEC-001", "reason": "Validate before committing." }
   ],
   "warnings": []

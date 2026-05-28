@@ -36,6 +36,12 @@ describe("agent format across commands", () => {
       expect(envelope.status).toBe("ok");
       return envelope;
     };
+    const apply = (input: string, ...args: string[]) => {
+      const output = execFileSync(tsx, [cli, ...args, "--format", "agent"], { cwd: root, encoding: "utf8", input });
+      const envelope = envelopeSchema.parse(JSON.parse(output));
+      expect(envelope.status).toBe("ok");
+      return envelope;
+    };
 
     run("init", "--key", "VSPEC");
     run("ai-guide");
@@ -55,10 +61,16 @@ describe("agent format across commands", () => {
     run("usecase", "list");
     run("usecase", "show", created.key);
     run("usecase", "set", created.key, "--field", "format", "--value", "FULLY_DRESSED");
-    run("usecase", "add-stakeholder", created.key, "--stakeholder", "Vooster", "--interest", "exports are useful");
-    run("scenario", "add", created.key, "--type", "extension", "--at", "1a", "--condition", "Export cannot be written");
-    run("step", "add", created.key, "--actor", "system", "--action", "reports the write failure");
-    run("step", "edit", created.key, "--step", "1", "--action", "requests a gherkin export");
+    apply("- **vooster**: exports are useful\n", "usecase", "apply", created.key, "--section", "stakeholders");
+    apply("1. **developer** requests a gherkin export.\n", "usecase", "apply", created.key, "--section", "main-success");
+    apply(
+      "### 1a. Export cannot be written\n- 1a1. **system** reports the write failure.\n- (Outcome: FAILURE — use case ends.)\n",
+      "usecase",
+      "apply",
+      created.key,
+      "--section",
+      "extensions",
+    );
     run("export", "gherkin", created.key);
     run("doctor", created.key);
     rmSync(root, { recursive: true, force: true });

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
 import { Command } from "commander";
 import { looksLikeVerbPhrase, runDoctor } from "./validate/doctor.js";
+import { VspecError } from "./errors.js";
 import { initProject } from "./project.js";
 import { createUseCase, listUseCases, showUseCase } from "./usecase-commands.js";
 import {
@@ -16,8 +18,9 @@ import {
   showGoal,
   showStakeholder,
 } from "./entity-commands.js";
-import { addScenario, addStakeholderInterest, addStep, editStep, setUseCaseField } from "./mutators.js";
-import { addFormatOption, errorInfo, formatFrom, outputError, outputSuccess, type OutputFormat } from "./output.js";
+import { applyUseCaseBody, applyUseCaseSection, setUseCaseField } from "./mutators.js";
+import { BODY_SECTIONS } from "./format/parse.js";
+import { addFormatOption, errorInfo, formatFrom, outputError, outputSuccess } from "./output.js";
 import { aiGuideText } from "./ai-guide.js";
 import { exportGherkin } from "./export/gherkin.js";
 
@@ -117,8 +120,8 @@ export function buildProgram(): Command {
           ? []
           : [{ message: `Title "${options.title}" is not a verb phrase. Cockburn titles read as a goal, e.g. "주문을 생성한다" / "Place an order".` }],
         suggestedNextActions: [
+          { command: `vspec usecase apply ${created.key} --section main-success`, reason: "Author the main success steps (pipe the numbered list via stdin)." },
           { command: `vspec doctor ${created.key}`, reason: "Validate before committing." },
-          { command: `vspec usecase add-stakeholder ${created.key} --stakeholder project-team --interest "..."`, reason: "Add more interests." },
         ],
       })),
     );
@@ -154,13 +157,22 @@ export function buildProgram(): Command {
       runCommand(options, () => setUseCaseField({ key, ...options }), (result) => mutationPayload(result, key)),
     );
   addFormatOption(usecase
-    .command("add-stakeholder")
-    .argument("<key>")
-    .requiredOption("--stakeholder <name>", "stakeholder name (must exist in specs/stakeholders)")
-    .requiredOption("--interest <text>", "what this stakeholder wants to be true on success")
-    .option("--protected-by <ref>", "step ref or guarantee that protects this interest"))
-    .action((key: string, options: { stakeholder: string; interest: string; protectedBy?: string; format?: string }) =>
-      runCommand(options, () => addStakeholderInterest({ key, ...options }), (result) => mutationPayload(result, key)),
+    .command("apply")
+    .description("Replace the body (or one --section) from content piped via stdin")
+    .argument("<key>", "use-case key")
+    .option("--section <name>", `one of: ${BODY_SECTIONS.join("|")} (omit to replace the whole body)`))
+    .action((key: string, options: { section?: string; format?: string }) =>
+      runCommand(options, () => {
+        const input = readStdin();
+        if (options.section) return applyUseCaseSection({ key, section: options.section, content: input });
+        if (input.trim().length === 0) {
+          throw new VspecError(
+            "INVALID_ARGUMENT",
+            "Whole-body apply needs the full use-case body on stdin. To clear a single section instead, use --section <name>.",
+          );
+        }
+        return applyUseCaseBody({ key, body: input });
+      }, (result) => applyPayload(result, key)),
     );
 
   const actor = program.command("actor").description("Create, list, and show actors");
@@ -188,13 +200,13 @@ export function buildProgram(): Command {
     .option("--display-name <displayName>")
     .option("--type <type>", "internal|external|regulatory", "internal"))
     .action((options: { name: string; displayName?: string; type?: string; format?: string }) =>
-      runCommand(options, () => createStakeholder(options), (result) => entityPayload(result, "vspec usecase add-stakeholder <KEY> --stakeholder " + result.name)),
+      runCommand(options, () => createStakeholder(options), (result) => entityPayload(result, "vspec usecase apply <KEY> --section stakeholders")),
     );
   addFormatOption(stakeholder.command("list")).action((options: { format?: string }) =>
     runCommand(options, () => listStakeholders({}), (data) => ({ data, suggestedNextActions: [{ command: "vspec stakeholder show <name>" }] })),
   );
   addFormatOption(stakeholder.command("show").argument("<name>")).action((name: string, options: { format?: string }) =>
-    runCommand(options, () => showStakeholder({ name }), (data) => ({ data, suggestedNextActions: [{ command: "vspec usecase add-stakeholder <KEY> --stakeholder " + name }] })),
+    runCommand(options, () => showStakeholder({ name }), (data) => ({ data, suggestedNextActions: [{ command: "vspec usecase apply <KEY> --section stakeholders" }] })),
   );
 
   const goal = program.command("goal").description("Create, list, show, promote, and reject goals");
@@ -227,38 +239,6 @@ export function buildProgram(): Command {
   addFormatOption(goal.command("reject").argument("<id>")).action((id: string, options: { format?: string }) =>
     runCommand(options, () => rejectGoal({ id }), (data) => ({ data, suggestedNextActions: [{ command: "vspec goal list" }] })),
   );
-
-  const scenario = program.command("scenario").description("Mutate use-case scenarios");
-  addFormatOption(scenario
-    .command("add")
-    .argument("<key>")
-    .requiredOption("--type <type>", "main-success|extension")
-    .option("--at <point>", "extension point id, e.g. 3a or *a (digit = the main step it branches from)")
-    .option("--condition <text>", "the deviation/condition that triggers this extension")
-    .option("--outcome <outcome>", "success|failure|partial (default: failure)"))
-    .action((key: string, options: { type: string; at?: string; condition?: string; outcome?: string; format?: string }) =>
-      runCommand(options, () => addScenario({ key, ...options }), (result) => mutationPayload(result, key)),
-    );
-
-  const step = program.command("step").description("Mutate use-case steps");
-  addFormatOption(step
-    .command("add")
-    .argument("<key>")
-    .option("--scenario <scenario>", "main|<point>", "main")
-    .requiredOption("--actor <name>", "actor name (must exist in specs/actors)")
-    .requiredOption("--action <text>", "verb phrase, e.g. \"validates the payment\""))
-    .action((key: string, options: { scenario?: string; actor: string; action: string; format?: string }) =>
-      runCommand(options, () => addStep({ key, ...options }), (result) => mutationPayload(result, key)),
-    );
-  addFormatOption(step
-    .command("edit")
-    .argument("<key>")
-    .requiredOption("--step <step>", "main step number (e.g. 2) or extension step id (e.g. 3a1)")
-    .option("--actor <name>", "new actor name")
-    .option("--action <text>", "new verb phrase"))
-    .action((key: string, options: { step: string; actor?: string; action?: string; format?: string }) =>
-      runCommand(options, () => editStep({ key, ...options }), (result) => mutationPayload(result, key)),
-    );
 
   const exportCommand = program.command("export").description("Export use cases");
   addFormatOption(exportCommand.command("gherkin").argument("<key>").option("--output <path>")).action(
@@ -319,6 +299,34 @@ function mutationPayload<T extends { path: string }>(data: T, key: string) {
     data,
     affectedFiles: [{ path: data.path }],
     suggestedNextActions: [{ command: `vspec doctor ${key}`, reason: "Validate after the edit." }],
+  };
+}
+
+function readStdin(): string {
+  if (process.stdin.isTTY) {
+    throw new VspecError(
+      "INVALID_ARGUMENT",
+      "vspec usecase apply reads the content from stdin. Pipe it in, e.g. `vspec usecase apply VSPEC-001 --section notes <<'EOF'\\n...\\nEOF` or `cat body.md | vspec usecase apply VSPEC-001`.",
+    );
+  }
+  return readFileSync(0, "utf8");
+}
+
+// apply is the authoring boundary: after writing, validate inline so the agent
+// sees findings without a separate doctor call.
+function applyPayload<T extends { path: string }>(data: T, key: string) {
+  const { findings } = runDoctor({ target: key });
+  const errors = findings.filter((finding) => finding.level === "error");
+  return {
+    data,
+    affectedFiles: [{ path: data.path }],
+    warnings: findings.map((finding) => ({ message: `${finding.level}: ${finding.message}` })),
+    suggestedNextActions: [
+      {
+        command: `vspec doctor ${key}`,
+        reason: errors.length > 0 ? `${errors.length} validation error(s) to fix.` : "Validate after the edit.",
+      },
+    ],
   };
 }
 

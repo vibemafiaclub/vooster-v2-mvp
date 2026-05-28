@@ -55,14 +55,14 @@
     },
     {
       "id": "P4",
-      "title": "Actors, stakeholders, goals + convenience mutators",
+      "title": "Actors, stakeholders, goals + body-authoring gateway",
       "status": "done",
       "gate": "e2e: build a FULLY_DRESSED use case entirely via CLI; doctor exits 0 with no warnings",
       "tasks": [
         { "id": "P4-T1", "title": "actor & stakeholder create/list/show (file CRUD, ALREADY_EXISTS guard)", "status": "done" },
         { "id": "P4-T2", "title": "goal create/list/show/promote/reject (promote links + creates use case)", "status": "done" },
-        { "id": "P4-T3", "title": "usecase set + add-stakeholder (re-serialize through normalize)", "status": "done" },
-        { "id": "P4-T4", "title": "scenario add + step add/edit on the use-case body", "status": "done" }
+        { "id": "P4-T3", "title": "usecase set (frontmatter field, re-serialize through normalize)", "status": "done" },
+        { "id": "P4-T4", "title": "usecase apply [--section] body-authoring gateway (parse + validate + normalize on write)", "status": "done" }
       ]
     },
     {

@@ -1,7 +1,9 @@
 # 02 — File Format (Canonical On-Disk Contract)
 
-This is the **canonical on-disk format**. Files *are* the source of truth (see
-`00-overview.md`). The parser and serializer must satisfy the
+This is the **canonical on-disk format**. Files are the source of truth for the
+round-trip guarantee, but they are written **only by the CLI** — agents author
+through `vspec usecase apply`, never by editing these files directly (see
+principle 4 in `00-overview.md`). The parser and serializer must satisfy the
 [round-trip guarantee](#round-trip-guarantee); this document is what they are
 tested against.
 

@@ -25,8 +25,12 @@ exit non-zero.
 ## Command Surface
 
 The surface is intentionally small. Commands are grouped into **core** (the
-dogfooding loop — build these first) and **convenience** (granular mutators that
-duplicate what an agent can do by editing the file directly).
+dogfooding loop — build these first) and **supporting** (entity CRUD and
+frontmatter edits). There is no "edit the file directly" path: every change to a
+use case goes through a `vspec` command. Body authoring is `vspec usecase apply`
+(whole body, or one `--section`); frontmatter is `vspec usecase set`. The
+filesystem is the current backend and will be replaced by a remote DB, so the CLI
+is the only sanctioned writer.
 
 ### Core
 
@@ -51,6 +55,16 @@ vspec usecase create --title "<verb phrase>" --primary-actor <name> \
     required headings present (empty where unknown). --from links the source goal
     and flips that goal to PROMOTED. Prints the new key and file path.
 
+vspec usecase apply <KEY-NNN> [--section <name>]
+    Replace the use-case body from content piped via stdin. With --section, replace
+    just that section; the names are: blurb, stakeholders, preconditions, trigger,
+    main-success, extensions, success-guarantee, minimal-guarantee, notes. Without
+    --section, the stdin is the full body (title + every section) and replaces it
+    wholesale. The agent authors the content; the CLI parses, validates, and
+    normalizes it on write (a reject leaves the file untouched), and returns
+    doctor findings in the envelope warnings. This is the body-authoring path —
+    never edit the markdown file directly.
+
 vspec usecase list [--status=] [--actor=] [--level=] [--q=<substr>]
     List use cases (key, title, level, status) from files.
 
@@ -63,7 +77,7 @@ vspec export gherkin <KEY-NNN> [--output <path>]
     affected_files.
 ```
 
-### Convenience (lower priority — the agent can edit the file directly)
+### Supporting (entity CRUD + frontmatter)
 
 ```
 vspec actor create --name <n> [--display-name <d>] \
@@ -85,16 +99,8 @@ vspec goal reject <G-NNN>
 
 vspec usecase set <KEY-NNN> --field <name> --value "<value>"
     Set a frontmatter field (title, level, format, status, priority, scope,
-    frequency) on a use case, re-serializing through normalize.
-
-vspec usecase add-stakeholder <KEY-NNN> --stakeholder <name> --interest "<text>" \
-    [--protected-by "<ref>"]
-    Append a stakeholder interest line.
-
-vspec scenario add <KEY-NNN> --type main-success|extension \
-    [--at <step>a] [--condition "<text>"] [--outcome success|failure|partial]
-vspec step add <KEY-NNN> [--scenario main|<point>] --actor <name> --action "<verb phrase>"
-vspec step edit <KEY-NNN> --step <n|id> [--actor <name>] [--action "<text>"]
+    frequency) on a use case, re-serializing through normalize. Body sections are
+    edited with `vspec usecase apply --section`, not here.
 ```
 
 ## Self-Teaching Behavior
@@ -103,8 +109,8 @@ Every command — on success and on error — populates `suggested_next_actions`
 the agent envelope with the natural next command(s). Examples:
 
 - After `vspec init` → suggest `vspec actor create`, `vspec usecase create`.
-- After `vspec usecase create` → suggest `vspec doctor <KEY>`,
-  `vspec usecase add-stakeholder <KEY> ...`.
+- After `vspec usecase create` → suggest
+  `vspec usecase apply <KEY> --section main-success`, `vspec doctor <KEY>`.
 - After a `doctor` error "primary_actor not found" → suggest
   `vspec actor create --name <name>`.
 

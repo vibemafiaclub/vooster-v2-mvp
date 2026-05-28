@@ -19,12 +19,41 @@ const SECTION_ORDER = [
 
 type SectionName = (typeof SECTION_ORDER)[number];
 
+export type UseCaseBody = Omit<ParsedUseCase, "frontmatter">;
+
+export type BodySection =
+  | "blurb"
+  | "stakeholders"
+  | "preconditions"
+  | "trigger"
+  | "main-success"
+  | "extensions"
+  | "success-guarantee"
+  | "minimal-guarantee"
+  | "notes";
+
+export const BODY_SECTIONS: BodySection[] = [
+  "blurb",
+  "stakeholders",
+  "preconditions",
+  "trigger",
+  "main-success",
+  "extensions",
+  "success-guarantee",
+  "minimal-guarantee",
+  "notes",
+];
+
 export function parseUseCaseMarkdown(text: string): ParsedUseCase {
   const { data, content } = parseMatter(text);
   const frontmatter = parseUseCaseFrontmatter(data);
+  return { frontmatter, ...parseUseCaseBody(content, frontmatter.title) };
+}
+
+export function parseUseCaseBody(content: string, fallbackTitle: string): UseCaseBody {
   const lines = trimTrailingWhitespace(content).split("\n");
   const titleLineIndex = lines.findIndex((line) => line.startsWith("# "));
-  const title = titleLineIndex >= 0 ? lines[titleLineIndex].slice(2).trim() : frontmatter.title;
+  const title = titleLineIndex >= 0 ? lines[titleLineIndex].slice(2).trim() : fallbackTitle;
   const afterTitle = titleLineIndex >= 0 ? lines.slice(titleLineIndex + 1) : lines;
   const firstSection = afterTitle.findIndex((line) => line.startsWith("## "));
   const intro = firstSection >= 0 ? afterTitle.slice(0, firstSection) : afterTitle;
@@ -32,7 +61,6 @@ export function parseUseCaseMarkdown(text: string): ParsedUseCase {
   const sections = splitSections(firstSection >= 0 ? afterTitle.slice(firstSection) : []);
 
   return {
-    frontmatter,
     title,
     blurb,
     stakeholderInterests: parseStakeholderInterests(sections.get("Stakeholders and Interests") ?? []),
@@ -44,6 +72,42 @@ export function parseUseCaseMarkdown(text: string): ParsedUseCase {
     minimalGuarantee: parseParagraph(sections.get("Minimal Guarantee") ?? []),
     notes: parseVerbatim(sections.get("Notes") ?? []),
   };
+}
+
+// Replace a single section's content on a use case from the raw text an agent
+// submits via `vspec usecase apply --section`. The text is the section body only
+// (no `## Heading`), in the same line format the parser reads from a full file.
+export function applyBodySection(body: UseCaseBody, section: BodySection, text: string): void {
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  switch (section) {
+    case "blurb":
+      body.blurb = text.trim() ? text.trim() : null;
+      return;
+    case "stakeholders":
+      body.stakeholderInterests = parseStakeholderInterests(lines);
+      return;
+    case "preconditions":
+      body.preconditions = parseBullets(lines);
+      return;
+    case "trigger":
+      body.trigger = parseParagraph(lines);
+      return;
+    case "main-success":
+      body.mainSuccess = parseMainSuccess(lines);
+      return;
+    case "extensions":
+      body.extensions = parseExtensions(lines);
+      return;
+    case "success-guarantee":
+      body.successGuarantee = parseParagraph(lines);
+      return;
+    case "minimal-guarantee":
+      body.minimalGuarantee = parseParagraph(lines);
+      return;
+    case "notes":
+      body.notes = parseVerbatim(lines);
+      return;
+  }
 }
 
 function trimTrailingWhitespace(text: string): string {

@@ -18,8 +18,10 @@ Read first: `docs/00-overview.md`, `docs/01-cockburn.md`,
   flip a phase to `done` only when all its tasks are `done` and the gate passes.
 - **Boring and small.** No layering ceremony. Pure functions for parse /
   serialize / validate / render; thin command wrappers around them.
-- **Files are the source of truth.** No DB, no network. Everything reads/writes
-  `specs/` in the current working directory.
+- **The CLI is the only writer.** No DB, no network. The tool reads/writes
+  `specs/` in the current working directory, and agents change specs only through
+  `vspec` commands — never by editing the files directly (the filesystem backend
+  will later be a remote DB).
 
 A phase's **gate** is a concrete, runnable check (a test name or a command +
 expected exit). Do not advance with a red gate.
@@ -90,7 +92,8 @@ fixture that passes with exit 0; `vspec doctor` on the clean fixture dir exits 0
 ## Phase 3 — Use-case authoring (the dogfood loop core)
 
 **Objective:** scaffold, list, and show use cases. Enough to author a real one
-with the agent editing the body and the CLI doing keys + validation + display.
+with the agent submitting the body through the CLI and the CLI doing keys +
+validation + display.
 
 Tasks:
 - `P3-T1` `vspec init [--key <PREFIX>]`: write `.vspec/config.json` + `specs/`
@@ -106,20 +109,21 @@ file → asserts it round-trips (`serialize(parse(F)) === normalize(F)`) and tha
 
 ## Phase 4 — Actors, stakeholders, goals + convenience mutators
 
-**Objective:** the supporting entities and the granular editors, so a fully
-dressed use case is reachable through the CLI alone (not only by hand-editing).
+**Objective:** the supporting entities and the body-authoring gateway, so a fully
+dressed use case is reachable through the CLI alone (hand-editing is not a path).
 
 Tasks:
 - `P4-T1` `actor create|list|show`, `stakeholder create|list|show` (file CRUD,
   slug filenames, zod-validated frontmatter, `ALREADY_EXISTS` guard).
 - `P4-T2` `goal create|list|show|promote|reject`; `promote` flips status to
   PROMOTED, creates the linked use case, sets `linked_usecase`.
-- `P4-T3` `usecase set` (frontmatter field) and `usecase add-stakeholder`
-  (append interest), both re-serializing through `normalize`.
-- `P4-T4` `scenario add` and `step add|edit` operating on the use-case body.
+- `P4-T3` `usecase set` (frontmatter field), re-serializing through `normalize`.
+- `P4-T4` `usecase apply [--section <name>]`: replace the whole body or one
+  section from stdin, parsed + validated + normalized on write. Subsumes the body
+  edits (stakeholders, scenarios, steps, guarantees, notes) — no per-field verbs.
 
 **Gate:** an e2e test that builds a FULLY_DRESSED use case entirely via CLI
-commands (actor + stakeholder + create + add-stakeholder + step add), then
+commands (actor + stakeholder + create + `usecase apply --section`), then
 `doctor` exits 0 with no warnings.
 
 ## Phase 5 — Agent envelope across commands + `ai-guide`
@@ -164,7 +168,7 @@ expected `.feature`.
 Tasks:
 - `P7-T1` `vspec init --key VSPEC` at repo root.
 - `P7-T2` Author ≥5 real use cases for *this project* (the authoring tool
-  itself), as files — by the agent editing markdown and/or `usecase create`.
+  itself) via the CLI — `usecase create` then `usecase apply` (never hand-editing).
   Suggested seeds: "Author a use case", "Validate specs", "Export to Gherkin",
   "Scaffold a project", "Promote a goal to a use case". Include actors &
   stakeholders they reference.

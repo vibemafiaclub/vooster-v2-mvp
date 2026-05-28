@@ -37,11 +37,16 @@ version control. The agent is the only user.**
 3. **The agent is the user.** There is no web UI and no human-facing GUI in
    this MVP. Humans drive the tool *through* their coding agent. Every command
    speaks `--format=agent` (see `04-agent-envelope.md`).
-4. **The CLI scaffolds and validates; the agent authors.** The primary
-   authoring path is the agent writing markdown directly (LLMs are excellent at
-   this). The CLI's core job is to (a) scaffold a valid skeleton, (b) validate
-   what was written (`doctor`), and (c) export it (`gherkin`). Granular
-   mutation commands exist as conveniences, not as the only path.
+4. **The CLI is the only mutation path; the agent authors the content.** LLMs are
+   excellent at writing the use-case prose — but they submit it *through* the CLI
+   (`vspec usecase apply` / `apply --section` / `set`), never by editing files
+   under `specs/` with an Edit/Write tool. The filesystem is the current backend
+   and will be replaced by a remote database, where raw file writes are
+   impossible; routing every change through the CLI now keeps that transition
+   seamless (and lets the CLI validate/normalize on the way in, like a PUT/PATCH).
+   The CLI's job: (a) scaffold a valid skeleton (`create`), (b) accept authored
+   content through validated commands (`apply`), (c) validate (`doctor`), and
+   (d) export (`gherkin`).
 5. **Boring and small.** No hexagonal layering, no ports/adapters ceremony, no
    plugin framework. One small package. The whole tool should be readable in an
    afternoon.
@@ -123,8 +128,9 @@ file versions; a `vspec serve` local read-only viewer.
 The MVP is done when **we can author vspec's own specs with vspec, offline**:
 
 1. `vspec init --key VSPEC` scaffolds a repo.
-2. Several real use cases for *this project* are authored as files (by the agent,
-   directly editing markdown and/or via `vspec usecase create`).
+2. Several real use cases for *this project* are authored via the CLI (the agent
+   running `vspec usecase create` then `vspec usecase apply`), never by editing
+   the files directly.
 3. `vspec doctor` reports them green.
 4. `serialize(parse(F)) === normalize(F)` holds for every authored file.
 5. `vspec export gherkin <KEY>` produces a `.feature` for each.
