@@ -140,17 +140,17 @@ export function buildProgram(): Command {
   addFormatOption(usecase
     .command("set")
     .argument("<key>")
-    .requiredOption("--field <name>")
-    .requiredOption("--value <value>"))
+    .requiredOption("--field <name>", "title|level|format|status|priority|scope|frequency")
+    .requiredOption("--value <value>", "new value (validated against the field)"))
     .action((key: string, options: { field: string; value: string; format?: string }) =>
       runCommand(options, () => setUseCaseField({ key, ...options }), (result) => mutationPayload(result, key)),
     );
   addFormatOption(usecase
     .command("add-stakeholder")
     .argument("<key>")
-    .requiredOption("--stakeholder <name>")
-    .requiredOption("--interest <text>")
-    .option("--protected-by <ref>"))
+    .requiredOption("--stakeholder <name>", "stakeholder name (must exist in specs/stakeholders)")
+    .requiredOption("--interest <text>", "what this stakeholder wants to be true on success")
+    .option("--protected-by <ref>", "step ref or guarantee that protects this interest"))
     .action((key: string, options: { stakeholder: string; interest: string; protectedBy?: string; format?: string }) =>
       runCommand(options, () => addStakeholderInterest({ key, ...options }), (result) => mutationPayload(result, key)),
     );
@@ -224,10 +224,10 @@ export function buildProgram(): Command {
   addFormatOption(scenario
     .command("add")
     .argument("<key>")
-    .requiredOption("--type <type>")
-    .option("--at <point>")
-    .option("--condition <text>")
-    .option("--outcome <outcome>"))
+    .requiredOption("--type <type>", "main-success|extension")
+    .option("--at <point>", "extension point id, e.g. 3a or *a (digit = the main step it branches from)")
+    .option("--condition <text>", "the deviation/condition that triggers this extension")
+    .option("--outcome <outcome>", "success|failure|partial (default: failure)"))
     .action((key: string, options: { type: string; at?: string; condition?: string; outcome?: string; format?: string }) =>
       runCommand(options, () => addScenario({ key, ...options }), (result) => mutationPayload(result, key)),
     );
@@ -237,17 +237,17 @@ export function buildProgram(): Command {
     .command("add")
     .argument("<key>")
     .option("--scenario <scenario>", "main|<point>", "main")
-    .requiredOption("--actor <name>")
-    .requiredOption("--action <text>"))
+    .requiredOption("--actor <name>", "actor name (must exist in specs/actors)")
+    .requiredOption("--action <text>", "verb phrase, e.g. \"validates the payment\""))
     .action((key: string, options: { scenario?: string; actor: string; action: string; format?: string }) =>
       runCommand(options, () => addStep({ key, ...options }), (result) => mutationPayload(result, key)),
     );
   addFormatOption(step
     .command("edit")
     .argument("<key>")
-    .requiredOption("--step <step>")
-    .option("--actor <name>")
-    .option("--action <text>"))
+    .requiredOption("--step <step>", "main step number (e.g. 2) or extension step id (e.g. 3a1)")
+    .option("--actor <name>", "new actor name")
+    .option("--action <text>", "new verb phrase"))
     .action((key: string, options: { step: string; actor?: string; action?: string; format?: string }) =>
       runCommand(options, () => editStep({ key, ...options }), (result) => mutationPayload(result, key)),
     );
