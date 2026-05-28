@@ -9,7 +9,8 @@ const built = resolve(here, "../dist/src/cli.js");
 const source = resolve(here, "../src/cli.ts");
 
 if (existsSync(built)) {
-  await import(`file://${built}`);
+  const { run } = await import(`file://${built}`);
+  await run();
 } else {
   const result = spawnSync(
     process.platform === "win32" ? "npx.cmd" : "npx",

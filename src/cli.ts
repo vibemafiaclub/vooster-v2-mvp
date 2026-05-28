@@ -330,6 +330,12 @@ function applyPayload<T extends { path: string }>(data: T, key: string) {
   };
 }
 
+export async function run(argv: string[] = process.argv): Promise<void> {
+  await buildProgram().parseAsync(argv);
+}
+
+// Direct execution (`tsx src/cli.ts`). The bin wrapper imports and calls run()
+// explicitly, so it must not depend on this guard matching under dynamic import.
 if (import.meta.url === `file://${process.argv[1]}`) {
-  await buildProgram().parseAsync(process.argv);
+  await run();
 }
