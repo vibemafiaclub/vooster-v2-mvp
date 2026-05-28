@@ -21,7 +21,7 @@ function run(...args: string[]): string {
   return execFileSync(tsx, [cli, ...args], { cwd: root, encoding: "utf8" });
 }
 
-function apply(input: string, ...args: string[]): { status: string; warnings: { message: string }[] } {
+function apply(input: string, ...args: string[]): { status: string; warnings: { message: string }[]; suggested_next_actions: { command: string }[] } {
   return JSON.parse(execFileSync(tsx, [cli, "usecase", "apply", ...args], { cwd: root, encoding: "utf8", input }));
 }
 
@@ -76,6 +76,8 @@ describe("usecase apply is the validated write gateway", () => {
     ].join("\n");
     const env = apply(body, "VSPEC-001");
     expect(env.status).toBe("ok");
+    // A whole-body apply nudges toward per-section edits for next time.
+    expect(env.suggested_next_actions.some((a) => /apply VSPEC-001 --section/.test(a.command))).toBe(true);
     const after = readFileSync(ucPath(), "utf8");
     expect(after).toContain("key: VSPEC-001");
     expect(after).toContain("primary_actor: developer");

@@ -153,7 +153,7 @@ export function buildProgram(): Command {
           );
         }
         return applyUseCaseBody({ key, body: input });
-      }, (result) => applyPayload(result, key)),
+      }, (result) => applyPayload(result, key, !options.section)),
     );
 
   const actor = program.command("actor").description("Create, list, and show actors");
@@ -356,7 +356,7 @@ function readStdin(): string {
 
 // apply is the authoring boundary: after writing, validate inline so the agent
 // sees findings without a separate doctor call.
-function applyPayload<T extends { path: string }>(data: T, key: string) {
+function applyPayload<T extends { path: string }>(data: T, key: string, wholeBody: boolean) {
   const { findings, promotable } = runDoctor({ target: key });
   const errors = findings.filter((finding) => finding.level === "error");
   const actions = [
@@ -365,6 +365,12 @@ function applyPayload<T extends { path: string }>(data: T, key: string) {
       reason: errors.length > 0 ? `${errors.length} validation error(s) to fix.` : "Validate after the edit.",
     },
   ];
+  if (wholeBody) {
+    actions.push({
+      command: `vspec usecase apply ${key} --section main-success`,
+      reason: "For later edits, replace one --section at a time — fewer tokens and no risk of clobbering other sections.",
+    });
+  }
   if (promotable.length > 0) {
     actions.push({
       command: `vspec usecase set ${key} --field format --value FULLY_DRESSED`,
