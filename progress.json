@@ -44,13 +44,13 @@
     {
       "id": "P3",
       "title": "Use-case authoring (dogfood loop core)",
-      "status": "todo",
+      "status": "done",
       "gate": "e2e: init -> usecase create -> file round-trips and doctor reports no errors",
       "tasks": [
-        { "id": "P3-T1", "title": "vspec init [--key]: write .vspec/config.json + specs/ subdirs, idempotent", "status": "todo" },
-        { "id": "P3-T2", "title": "vspec usecase create: allocate key, slug, BRIEF skeleton, honor --from", "status": "todo" },
-        { "id": "P3-T3", "title": "vspec usecase list / show from files", "status": "todo" },
-        { "id": "P3-T4", "title": "Key allocation helper (src/keys.ts) shared by usecase & goal", "status": "todo" }
+        { "id": "P3-T1", "title": "vspec init [--key]: write .vspec/config.json + specs/ subdirs, idempotent", "status": "done" },
+        { "id": "P3-T2", "title": "vspec usecase create: allocate key, slug, BRIEF skeleton, honor --from", "status": "done" },
+        { "id": "P3-T3", "title": "vspec usecase list / show from files", "status": "done" },
+        { "id": "P3-T4", "title": "Key allocation helper (src/keys.ts) shared by usecase & goal", "status": "done" }
       ]
     },
     {
