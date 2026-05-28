@@ -81,7 +81,9 @@ vspec export gherkin <KEY-NNN> [--output <path>]
 
 ```
 vspec actor create --name <n> [--display-name <d>] \
-    [--type primary|supporting|offstage] [--human] [--alias <a> ...]
+    [--type primary|supporting|offstage] [--human|--no-human] [--alias <a> ...]
+    is_human defaults from --type (human for primary, non-human otherwise);
+    --human / --no-human override it.
 vspec actor list
 vspec actor show <name>
 

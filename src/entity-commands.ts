@@ -22,13 +22,14 @@ export function createActor(args: { name: string; displayName?: string; type?: s
   const name = requireSlug(args.name, "actor name");
   const path = join(root, "specs/actors", `${name}.md`);
   if (existsSync(path)) throw new Error("ALREADY_EXISTS");
+  const actorType = parseActorType(args.type ?? "primary");
   const fm: ActorFrontmatter = {
     vspec_format: 1,
     type: "actor",
     name,
     display_name: args.displayName ?? displayName(name),
-    actor_type: parseActorType(args.type ?? "primary"),
-    is_human: args.human ?? true,
+    actor_type: actorType,
+    is_human: args.human ?? actorType === "PRIMARY",
     ...(args.alias && args.alias.length > 0 ? { aliases: args.alias } : {}),
   };
   writeFileSync(path, stringifyFrontmatter(orderActorFrontmatter(fm), `${fm.display_name} actor.\n`));

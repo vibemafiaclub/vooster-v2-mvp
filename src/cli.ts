@@ -181,7 +181,8 @@ export function buildProgram(): Command {
     .requiredOption("--name <name>")
     .option("--display-name <displayName>")
     .option("--type <type>", "primary|supporting|offstage", "primary")
-    .option("--human", "actor is human")
+    .option("--human", "force the actor human (default: human for primary, non-human otherwise)")
+    .option("--no-human", "force the actor non-human")
     .option("--alias <alias...>"))
     .action((options: { name: string; displayName?: string; type?: string; human?: boolean; alias?: string[]; format?: string }) =>
       runCommand(options, () => createActor(options), (result) => entityPayload(result, "vspec usecase create --title \"...\" --primary-actor " + result.name)),
